@@ -2,6 +2,9 @@ import discord
 from discord import app_commands
 import os
 
+TOKEN = os.getenv("DISCORD_CLIENT")
+GUILD_ID = discord.Object(id=1236902125406257192)
+
 class Client(discord.Client):
     async def on_ready(self):
         print(f"Logged on as {self.user}!")
@@ -25,8 +28,6 @@ client = Client(intents=intents)
 
 tree = app_commands.CommandTree(client)
 
-GUILD_ID = discord.Object(id=1236902125406257192)
-
 @tree.command(name="ping", description="Replies with pong!", guild=GUILD_ID)
 async def ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong!")
@@ -35,4 +36,4 @@ async def ping(interaction: discord.Interaction):
 async def call(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(message)
 
-client.run(os.getenv("DISCORD_CLIENT"))
+client.run(TOKEN)
