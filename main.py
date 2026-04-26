@@ -147,7 +147,7 @@ async def unmute(ctx, member: discord.Member, *, reason: str = None):
     allowed, error = hierarchy_check(ctx.author, member, ctx.guild.me)
     if not allowed:
         return await ctx.send(error)
-    if not member.is_timed_out():
+    if member.timed_out_until is None:
         return await ctx.send("This user is not muted.")
     await member.timeout(None, reason=reason)
     await ctx.send(f"{member.mention} has been unmuted\nReason: {reason}")
@@ -159,7 +159,7 @@ async def kick(ctx, member: discord.Member, *, reason: str = None):
     if not allowed:
         return await ctx.send(error)
     await member.kick(reason=reason)
-    await ctx.send(f"{discord.Member} has been kicked\nReason : {reason}")
+    await ctx.send(f"{member.mention} has been kicked\nReason : {reason}")
 
 @bot.command()
 @commands.has_permissions(ban_members=True)
@@ -168,7 +168,7 @@ async def ban(ctx, member: discord.Member, *, reason: str = None):
     if not allowed:
         return await ctx.send(error)
     await member.ban(reason=reason)
-    await ctx.send(f"{discord.Member} has been banned\nReason : {reason}")
+    await ctx.send(f"{member.mention} has been banned\nReason : {reason}")
 
 
 # =========================
@@ -211,7 +211,7 @@ async def slash_unmute(interaction: discord.Interaction, member: discord.Member,
     allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
     if not allowed:
         return await interaction.response.send_message(error, ephemeral=True)
-    if not member.is_timed_out():
+    if member.timed_out_until is None:
         return await interaction.response.send_message("This user is not muted.", ephemeral=True)
     await member.timeout(None, reason=reason)
     await interaction.response.send_message(f"{member.mention} has been unmuted\nReason: {reason or 'No reason provided'}")
@@ -222,7 +222,7 @@ async def slash_kick(interaction: discord.Interaction, member: discord.Member, r
     if not allowed:
         return await interaction.response.send_message(error, ephemeral=True)
     await member.kick(reason=reason)
-    await interaction.response.send_message(f"{discord.Member} has been kicked\nReason: {reason}")
+    await interaction.response.send_message(f"{member.mention} has been kicked\nReason: {reason}")
 
 @bot.tree.command(name="ban", description="Ban a user", guild=GUILD_ID)
 async def slash_ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
@@ -230,7 +230,7 @@ async def slash_ban(interaction: discord.Interaction, member: discord.Member, re
     if not allowed:
         return await interaction.response.send_message(error, ephemeral=True)
     await member.ban(reason=reason)
-    await interaction.response.send_message(f"{discord.Member} has been banned\nReason: {reason}")
+    await interaction.response.send_message(f"{member.mention} has been banned\nReason: {reason}")
 
 
 # =========================
