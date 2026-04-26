@@ -3,11 +3,12 @@ from discord.ext import commands
 from discord import app_commands
 import os
 import datetime
-from dotenv import load_dotenv
-load_dotenv()
+# from dotenv import load_dotenv
+# load_dotenv()
 
 TOKEN = os.getenv("TOKEN")
-GUILD_ID = discord.Object(id=1236902125406257192)
+if TOKEN is None:
+    raise ValueError("TOKEN is not set in environment variables")
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -17,6 +18,10 @@ HELP_TEXT=(
     "Prefix : !\n\n"
     "/ping → Check if bot is alive\n"
     "/echo <message> → Echo your message\n"
+    "/mute <user> → Mute a user\n"
+    "/unmute <user> → Unmute a user\n"
+    "/kick <user> → Kick a user\n"
+    "/ban <user> → Ban a user\n"
     "/help → Show this help message\n\n"
 )
 
@@ -88,7 +93,7 @@ async def on_ready():
     print(f"Logged on as {bot.user}!")
 
     try:
-        synced = await bot.tree.sync(guild=GUILD_ID)
+        synced = await bot.tree.sync()
         print(f"Synced {len(synced)} commands")
     except Exception as e:
         print(e)
@@ -175,23 +180,23 @@ async def ban(ctx, member: discord.Member, *, reason: str = None):
 #     SLASH COMMANDS (/)
 # =========================
 
-@bot.tree.command(name="ping", description="Replies with pong!", guild=GUILD_ID)
+@bot.tree.command(name="ping", description="Replies with pong!")
 async def slash_ping(interaction: discord.Interaction):
     await interaction.response.send_message("Pong!")
 
 
-@bot.tree.command(name="echo", description="Prints the given message", guild=GUILD_ID)
+@bot.tree.command(name="echo", description="Prints the given message")
 async def slash_echo(interaction: discord.Interaction, message: str):
     await interaction.response.send_message(message)
 
 
-@bot.tree.command(name="help", description="Shows help menu", guild=GUILD_ID)
+@bot.tree.command(name="help", description="Shows help menu")
 async def slash_help(interaction: discord.Interaction):
     await interaction.response.send_message(HELP_TEXT)
 
 # ==== MODERATION ====
 
-@bot.tree.command(name="mute", description="Mute a user", guild=GUILD_ID)
+@bot.tree.command(name="mute", description="Mute a user")
 @app_commands.describe(
     member="User to mute",
     duration="e.g. 10m, 2h, 3d",
@@ -206,7 +211,7 @@ async def slash_mute(interaction: discord.Interaction, member: discord.Member, d
     await member.timeout(until, reason=reason)
     await interaction.response.send_message(f"{member.mention} has been muted for {duration_td}\nReason: {reason}")
 
-@bot.tree.command(name="unmute", description="Unmute a user", guild=GUILD_ID)
+@bot.tree.command(name="unmute", description="Unmute a user")
 async def slash_unmute(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
     if not allowed:
@@ -216,7 +221,7 @@ async def slash_unmute(interaction: discord.Interaction, member: discord.Member,
     await member.timeout(None, reason=reason)
     await interaction.response.send_message(f"{member.mention} has been unmuted\nReason: {reason or 'No reason provided'}")
 
-@bot.tree.command(name="kick", description="Kick a user", guild=GUILD_ID)
+@bot.tree.command(name="kick", description="Kick a user")
 async def slash_kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
     if not allowed:
@@ -224,7 +229,7 @@ async def slash_kick(interaction: discord.Interaction, member: discord.Member, r
     await member.kick(reason=reason)
     await interaction.response.send_message(f"{member.mention} has been kicked\nReason: {reason}")
 
-@bot.tree.command(name="ban", description="Ban a user", guild=GUILD_ID)
+@bot.tree.command(name="ban", description="Ban a user")
 async def slash_ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
     allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
     if not allowed:
