@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 import os
+import datetime
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -21,6 +22,61 @@ HELP_TEXT=(
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 bot.remove_command("help")
+
+# =========================
+#    Auxilary functions
+# =========================
+
+MAX_TIMEOUT = datetime.timedelta(days=28)
+def parse_duration(duration_str: str | None):
+    if not duration_str:
+        return MAX_TIMEOUT
+    
+    try:
+        unit = duration_str[-1]
+        value = int(duration_str[:-1])
+        
+        if unit == "s":
+            duration = datetime.timedelta(seconds=value)
+        elif unit == "m":
+            duration = datetime.timedelta(minutes=value)
+        elif unit == "h":
+            duration = datetime.timedelta(hours=value)
+        elif unit == "d":
+            duration = datetime.timedelta(days=value)
+        else:
+            duration = MAX_TIMEOUT
+
+        if duration > MAX_TIMEOUT:
+            return MAX_TIMEOUT
+        
+        return duration
+        
+    except:
+        return MAX_TIMEOUT
+
+def hierarchy_check(author: discord.Member, target: discord.Member, bot_member: discord.Member):
+    # Server owner bypass
+    if author.id == author.guild.owner_id:
+        return True, None
+
+    # Cannot act on yourself
+    if author == target:
+        return False, "!!! You cannot moderate yourself."
+    
+    # Cannot act on owner
+    if target == author.guild.owner:
+        return False, "!!! You cannot moderate the server owner."
+
+    # User hierarchy check
+    if target.top_role >= author.top_role:
+        return False, "!!! You cannot moderate This user (role heirarchy)"
+
+    # Bot hierarchy check
+    if target.top_role >= bot_member.top_role:
+        return False, "!!! I cannot moderate this user (my role is too low)."
+
+    return True, None
 
 
 # ===================
@@ -72,6 +128,47 @@ async def echo(ctx, *, message: str):
 async def help(ctx):
     await ctx.send(HELP_TEXT)
 
+# ==== MODERATION =====
+
+@bot.command()
+@commands.has_permissions(moderate_members=True)
+async def mute(ctx, member: discord.Member, duration: str = None, *, reason: str = None):
+    allowed, error = hierarchy_check(ctx.author, member, ctx.guild.me)
+    if not allowed:
+        return await ctx.send(error)
+    duration_td = parse_duration(duration)
+    until = discord.utils.utcnow() + duration_td
+    await member.timeout(until, reason=reason)
+    await ctx.send(f"{member.mention} muted for {duration_td}\nReason : {reason}")
+
+@bot.command()
+@commands.has_permissions(moderate_members=True)
+async def unmute(ctx, member: discord.Member, *, reason: str = None):
+    allowed, error = hierarchy_check(ctx.author, member, ctx.guild.me)
+    if not allowed:
+        return await ctx.send(error)
+    await member.timeout(None, reason=reason)
+    await ctx.send(f"{member.mention} has been unmuted\nReason: {reason}")
+
+@bot.command()
+@commands.has_permissions(kick_members=True)
+async def kick(ctx, member: discord.Member, *, reason: str = None):
+    allowed, error = hierarchy_check(ctx.author, member, ctx.guild.me)
+    if not allowed:
+        return await ctx.send(error)
+    await member.kick(reason=reason)
+    await ctx.send(f"{discord.Member} has been kicked\nReason : {reason}")
+
+@bot.command()
+@commands.has_permissions(ban_members=True)
+async def ban(ctx, member: discord.Member, *, reason: str = None):
+    allowed, error = hierarchy_check(ctx.author, member, ctx.guild.me)
+    if not allowed:
+        return await ctx.send(error)
+    await member.ban(reason=reason)
+    await ctx.send(f"{discord.Member} has been banned\nReason : {reason}")
+
+
 # =========================
 #     SLASH COMMANDS (/)
 # =========================
@@ -89,6 +186,47 @@ async def slash_echo(interaction: discord.Interaction, message: str):
 @bot.tree.command(name="help", description="Shows help menu", guild=GUILD_ID)
 async def slash_help(interaction: discord.Interaction):
     await interaction.response.send_message(HELP_TEXT)
+
+# ==== MODERATION ====
+
+@bot.tree.command(name="mute", description="Mute a user", guild=GUILD_ID)
+@app_commands.describe(
+    member="User to mute",
+    duration="e.g. 10m, 2h, 3d",
+    reason="Reason for mute"
+)
+async def slash_mute(interaction: discord.Interaction, member: discord.Member, duration: str = None, reason: str = None):
+    allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
+    if not allowed:
+        return await interaction.response.send_message(error, ephemeral=True)
+    duration_td = parse_duration(duration)
+    until = discord.utils.utcnow() + duration_td
+    await member.timeout(until, reason=reason)
+    await interaction.response.send_message(f"{member.mention} has been muted for {duration_td}\nReason: {reason}")
+
+@bot.tree.command(name="unmute", description="Unmute a user", guild=GUILD_ID)
+async def slash_unmute(interaction: discord.Interaction, member: discord.Member, reason: str = None):
+    allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
+    if not allowed:
+        return await interaction.response.send_message(error, ephemeral=True)
+    await member.timeout(None, reason=reason)
+    await interaction.response.send_message(f"{member.mention} has been unmuted\nReason: {reason or 'No reason provided'}")
+
+@bot.tree.command(name="kick", description="Kick a user", guild=GUILD_ID)
+async def slash_kick(interaction: discord.Interaction, member: discord.Member, reason: str = None):
+    allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
+    if not allowed:
+        return await interaction.response.send_message(error, ephemeral=True)
+    await member.kick(reason=reason)
+    await interaction.response.send_message(f"{discord.Member} has been kicked\nReason: {reason}")
+
+@bot.tree.command(name="ban", description="Ban a user", guild=GUILD_ID)
+async def slash_ban(interaction: discord.Interaction, member: discord.Member, reason: str = None):
+    allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
+    if not allowed:
+        return await interaction.response.send_message(error, ephemeral=True)
+    await member.ban(reason=reason)
+    await interaction.response.send_message(f"{discord.Member} has been banned\nReason: {reason}")
 
 
 # =========================
