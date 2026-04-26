@@ -147,6 +147,8 @@ async def unmute(ctx, member: discord.Member, *, reason: str = None):
     allowed, error = hierarchy_check(ctx.author, member, ctx.guild.me)
     if not allowed:
         return await ctx.send(error)
+    if not member.is_timed_out():
+        return await ctx.send("This user is not muted.")
     await member.timeout(None, reason=reason)
     await ctx.send(f"{member.mention} has been unmuted\nReason: {reason}")
 
@@ -209,6 +211,8 @@ async def slash_unmute(interaction: discord.Interaction, member: discord.Member,
     allowed, error = hierarchy_check(interaction.user, member, interaction.guild.me)
     if not allowed:
         return await interaction.response.send_message(error, ephemeral=True)
+    if not member.is_timed_out():
+        return await interaction.response.send_message("This user is not muted.", ephemeral=True)
     await member.timeout(None, reason=reason)
     await interaction.response.send_message(f"{member.mention} has been unmuted\nReason: {reason or 'No reason provided'}")
 
